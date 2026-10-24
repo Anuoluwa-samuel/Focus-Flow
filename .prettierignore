@@ -1,0 +1,8 @@
+node_modules
+.next
+pnpm-lock.yaml
+src/db/migrations
+test-results
+playwright-report
+tsconfig.tsbuildinfo
+*.md

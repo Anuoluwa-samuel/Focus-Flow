@@ -1,0 +1,107 @@
+@import "tailwindcss";
+
+/* Design tokens. Light = warm off-white, dark = deep charcoal, one restrained accent. */
+:root,
+[data-theme="light"] {
+  --background: #f6f3ee;
+  --surface: #fbf9f5;
+  --surface-raised: #ffffff;
+  --foreground: #1d1b18;
+  --muted: #5f5a52;
+  --border: #ded8ce;
+  --border-strong: #8a8378; /* form control edges: >= 3:1 against both surfaces (WCAG 1.4.11) */
+  --accent: #b4532a;
+  --accent-foreground: #ffffff;
+  --accent-soft: #f1dfd4;
+  --danger: #b3261e;
+  --success: #2f6b3f;
+  --ring: #b4532a;
+  --radius: 0.75rem;
+  --shadow-card: 0 1px 2px rgb(29 27 24 / 0.05), 0 8px 24px -12px rgb(29 27 24 / 0.12);
+  --ease-out: cubic-bezier(0.22, 1, 0.36, 1);
+  --duration: 180ms;
+}
+
+[data-theme="dark"] {
+  --background: #141311;
+  --surface: #1b1a17;
+  --surface-raised: #232120;
+  --foreground: #ece8e1;
+  --muted: #a39c91;
+  --border: #35322d;
+  --border-strong: #7d766b;
+  --accent: #e0835a;
+  --accent-foreground: #1a0f09;
+  --accent-soft: #3a2519;
+  --danger: #f2837b;
+  --success: #7fc08f;
+  --ring: #e0835a;
+  --shadow-card: 0 1px 2px rgb(0 0 0 / 0.4), 0 8px 24px -12px rgb(0 0 0 / 0.6);
+}
+
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme]) {
+    --background: #141311;
+    --surface: #1b1a17;
+    --surface-raised: #232120;
+    --foreground: #ece8e1;
+    --muted: #a39c91;
+    --border: #35322d;
+    --border-strong: #7d766b;
+    --accent: #e0835a;
+    --accent-foreground: #1a0f09;
+    --accent-soft: #3a2519;
+    --danger: #f2837b;
+    --success: #7fc08f;
+    --ring: #e0835a;
+    --shadow-card: 0 1px 2px rgb(0 0 0 / 0.4), 0 8px 24px -12px rgb(0 0 0 / 0.6);
+  }
+}
+
+@theme inline {
+  --color-background: var(--background);
+  --color-surface: var(--surface);
+  --color-raised: var(--surface-raised);
+  --color-foreground: var(--foreground);
+  --color-muted: var(--muted);
+  --color-border: var(--border);
+  --color-border-strong: var(--border-strong);
+  --color-accent: var(--accent);
+  --color-accent-foreground: var(--accent-foreground);
+  --color-accent-soft: var(--accent-soft);
+  --color-danger: var(--danger);
+  --color-success: var(--success);
+  --radius-card: var(--radius);
+  --shadow-card: var(--shadow-card);
+  --font-sans: var(--font-geist-sans);
+  --font-mono: var(--font-geist-mono);
+}
+
+body {
+  background: var(--background);
+  color: var(--foreground);
+  font-family: var(--font-geist-sans), system-ui, sans-serif;
+}
+
+:focus-visible {
+  outline: 2px solid var(--ring);
+  outline-offset: 2px;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+    scroll-behavior: auto !important;
+  }
+}
+
+/* Form controls get the stronger edge colour so their boundary is perceivable. */
+input:not([type="checkbox"]):not([type="radio"]):not([type="hidden"]),
+select,
+textarea {
+  border-color: var(--border-strong);
+}
