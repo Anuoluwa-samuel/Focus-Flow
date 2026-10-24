@@ -39,3 +39,18 @@ Method: automated end-to-end tests (Playwright, real browser and raw HTTP agains
 - Rate limits are per client IP as seen by the platform; behind a shared NAT several users share a budget, and spoofed `X-Forwarded-For` handling depends on the host.
 - No independent penetration test, no WAF, no audit logging of security events beyond application logs.
 - `better-auth`'s own rate-limit table only covers auth endpoints; other actions rely on authentication and database constraints.
+
+## Google sign-in (added after Phase 7)
+
+| Control | Evidence |
+|---|---|
+| Button only when both `GOOGLE_*` variables are set; half a configuration stops startup naming the variables, never values | `tests/unit/env.test.ts` |
+| Redirect to Google carries the right client, exact callback URI, `openid email profile`, `state` and PKCE (`S256`); the client secret never reaches the browser | `e2e/google.spec.ts` |
+| `?next=` cannot become the post-login destination if it is not a same-site path | `e2e/google.spec.ts` |
+| A forged or failed callback returns to `/login` with one generic message and no session; the `error` URL parameter is never reflected | `e2e/google.spec.ts` |
+| `/sign-in/social` is rate limited (10/min) | `e2e/google.spec.ts` |
+| **Pre-registration takeover guard:** Google is not a trusted provider, so an existing account is only linked when Google asserts the email is verified. If that local account never verified, its password login and sessions are deleted before linking | `tests/integration/account-service.test.ts` (guard logic); the Better Auth hook that calls it is **not** exercised end to end |
+| Provider tokens encrypted at rest (`encryptOAuthTokens`) | configuration only, not independently tested |
+| Google-only accounts: no password form; deletion via emailed link and typed `DELETE` | component logic; **not** run end to end |
+
+**Not verified:** any real Google round trip (consent, callback, account creation, linking, repeat sign-in), and the account hook firing during a real linking. This needs real credentials; follow the checklist in `docs/DEPLOYMENT.md` §7.

@@ -28,7 +28,7 @@ Principles the code is built around:
 | Area                    | What you get                                                                                                                                                                                                                                                                                                  |
 | ----------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
 | Landing & legal         | Landing page with timer preview, features, how it works, accurate privacy/security statement; Privacy, Terms (drafts for the operator to review) and Support pages                                                                                                                                            |
-| Accounts                | Register, email verification, sign in/out, forgot/reset password, change name and password (signs out other devices), account deletion with password + typed confirmation + emailed link                                                                                                                      |
+| Accounts                | Register, email verification, optional **Continue with Google**, sign in/out, forgot/reset password, change name and password (signs out other devices), account deletion with password + typed confirmation + emailed link                                                                                                                      |
 | Timer                   | Focus, short break, long break; start, pause, resume, reset, skip; configurable durations and long-break cycle; optional automatic next session; mute control; full-screen view; completion chime and browser notification (both optional); tab title countdown; screen-reader announcements on state changes |
 | Tasks                   | Create, edit, complete/reopen, archive/restore, delete; priority and due date; filter by status and priority; paginated; per-task focus time; pick a task before a session                                                                                                                                     |
 | History                 | Filter by date range, type, status and task; paginated; delete your own finished sessions                                                                                                                                                                                                                     |
@@ -41,7 +41,7 @@ Principles the code is built around:
 | Status                                | Items                                                                                                                                                                                                                                                                                                                                                                                                  |
 | ------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
 | ✅ Implemented and verified locally   | All features in the table above; database constraints and migrations (fresh-database run, re-run and drift check); startup environment validation; security headers and CSP on a production build; rate limiting; account deletion; cross-user isolation; concurrent completion safety                                                                                                                  |
-| 🔑 Needs your external configuration  | **Resend** (email delivery: verification, reset, deletion), **Neon** (or another managed Postgres) with TLS, **Vercel** (or another Node host) with HTTPS and a real domain. The code paths exist and are tested with a local file outbox and a local Postgres, but **real email delivery, TLS to a managed database, Secure cookies on a real HTTPS origin and the hosted deployment were never tested** |
+| 🔑 Needs your external configuration  | **Google OAuth** (a Google Cloud OAuth client; the redirect, state/PKCE, error handling and account-linking guard are tested with dummy credentials, but a real Google sign-in was **never run**), **Resend** (email delivery: verification, reset, deletion), **Neon** (or another managed Postgres) with TLS, **Vercel** (or another Node host) with HTTPS and a real domain. The code paths exist and are tested with a local file outbox and a local Postgres, but **real email delivery, TLS to a managed database, Secure cookies on a real HTTPS origin and the hosted deployment were never tested** |
 | 🧭 Documented, not built (see §15)    | Two-factor auth, social login, data export, change-email flow, offline/PWA mode, service-worker notifications                                                                                                                                                                                                                                                                                         |
 
 ## 3. Technology stack
@@ -49,7 +49,7 @@ Principles the code is built around:
 | Concern       | Choice                                                                                                |
 | ------------- | ----------------------------------------------------------------------------------------------------- |
 | Framework     | Next.js 16.4 (App Router, Turbopack), React 19.3, TypeScript (strict)                                 |
-| Styling       | Tailwind CSS 4 with design tokens in `src/app/globals.css`; Lucide icons; small hand-written UI parts |
+| Styling       | Tailwind CSS 4 with design tokens in `src/app/globals.css`; Lucide icons; small hand-written UI parts; `CircleProgress` (vendored, `src/components/ui/circle-progress.tsx`) draws the timer ring |
 | Forms         | React Hook Form + Zod (shared schemas in `src/validators`)                                            |
 | Database      | PostgreSQL 17 via Drizzle ORM 0.45 and Drizzle Kit (SQL migrations in `src/db/migrations`)            |
 | Auth          | Better Auth 1.7 (scrypt hashing, sessions, email verification, reset, CSRF/origin checks)             |
@@ -142,6 +142,7 @@ Validated by `src/lib/env.ts` (Zod) when the server starts (`src/instrumentation
 | `EMAIL_FROM`         | yes               | Sender, e.g. `FocusFlow <noreply@your-domain.com>`; must be on a domain verified with Resend in production                                   |
 | `RESEND_API_KEY`     | production only   | Resend API key. If empty in development, emails are printed to the server console. **Required in production** (startup fails without it)      |
 | `SUPPORT_EMAIL`      | no                | Shown on the public Support page                                                                                                              |
+| `GOOGLE_CLIENT_ID` / `GOOGLE_CLIENT_SECRET` | no (both or neither) | Enables "Continue with Google". Setting only one stops startup. Redirect URI to register in Google: `{BETTER_AUTH_URL}/api/auth/callback/google` (see [docs/DEPLOYMENT.md](docs/DEPLOYMENT.md)) |
 | `EMAIL_OUTBOX_FILE`  | tests only        | Appends emails to a file instead of sending. Ignored in production. Used by the Playwright setup                                             |
 
 `.env.example` holds placeholders only. `.env*` files are git-ignored. Never commit real values.
@@ -180,8 +181,8 @@ Quality commands:
 
 ```bash
 docker compose up -d     # tests need Postgres
-pnpm test                # Vitest: unit, component, integration (152 tests)
-pnpm test:e2e            # Playwright (31 tests)
+pnpm test                # Vitest: unit, component, integration (164 tests)
+pnpm test:e2e            # Playwright (38 tests)
 ```
 
 - **Unit/component** (`tests/unit`): timer state machine and calculations, date/timezone and DST boundaries, streaks, validators, safe redirects, notification and mute logic, the Timer component (start, keyboard type selection, network failure, single completion).
@@ -215,6 +216,7 @@ There are no OAuth callbacks to configure (email and password only). The auth en
 
 Full details: [docs/THREAT-MODEL.md](docs/THREAT-MODEL.md) and [docs/SECURITY-AUDIT.md](docs/SECURITY-AUDIT.md).
 
+- **Google sign-in**: Authorization-code flow with state and PKCE; the client secret stays on the server; Google must assert the email is verified before an existing account is linked; if that existing account never verified its email, its password login and sessions are discarded first (stops pre-registration takeover); provider tokens are encrypted at rest; any OAuth failure returns to the sign-in page with one generic message; Google-only accounts delete via an emailed link instead of a password.
 - **Authentication**: Better Auth with scrypt password hashing; HttpOnly, SameSite=Lax cookies (Secure and `__Secure-` prefixed in production); 7-day sessions validated against the database on each request; sessions revoked on password reset and change; email verification required before sign-in.
 - **Enumeration and abuse**: identical responses for unknown/known addresses on sign-up, sign-in and reset; Postgres-backed rate limits (sign-in 5/min, sign-up, reset and verification 5-10/hour, default 60/min); auth request bodies capped at 16 KB; name/email length limits.
 - **Authorization**: `requireUser()` on every protected page and action; services take `userId` from the session and scope every query; foreign IDs behave like missing ones; database foreign keys and constraints back this up.
@@ -234,12 +236,12 @@ This is not a claim of complete security. It has not been independently audited.
 - Rate limits are per client IP and cover the auth endpoints only; Server Actions rely on authentication, Next.js's origin check and database constraints.
 - `style-src-attr 'unsafe-inline'` is allowed (the timer ring and charts use inline `style` attributes).
 - Best streak looks back about 3 years. Changing timezone re-buckets history on the next view.
-- No email-change flow, no data export, no two-factor authentication, no offline mode.
+- Google sign-in has never been exercised against real Google. Google-only accounts have no password (no password-change form) and cannot unlink Google. There is no email-change flow, no data export, no two-factor authentication and no offline mode.
 - Tested in Chrome only. No load testing. No independent security review. Privacy and Terms pages are drafts for you to review.
 
 ## 15. Future improvements
 
-Two-factor authentication or passkeys; social sign-in; change-email and data-export (GDPR-style) flows; hashed single-use verification rows; service-worker notifications and a PWA/offline mode; per-user rate limits for Server Actions and a security-event audit log; CSP violation reporting; weekly goals, task estimates and tags; a configurable chime; Playwright runs on more browsers and in CI; load and soak tests.
+Two-factor authentication or passkeys; more social providers and an unlink/"set a password" flow; change-email and data-export (GDPR-style) flows; hashed single-use verification rows; service-worker notifications and a PWA/offline mode; per-user rate limits for Server Actions and a security-event audit log; CSP violation reporting; weekly goals, task estimates and tags; a configurable chime; Playwright runs on more browsers and in CI; load and soak tests.
 
 ---
 
@@ -264,7 +266,7 @@ All are authenticated, validated with Zod, and return `{ ok: true, data } | { ok
 
 | Route         | Method    | Purpose                                                                                                                                                     |
 | ------------- | --------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| `/api/auth/*` | GET, POST | Better Auth: sign-up, sign-in, sign-out, verify email, request/perform password reset, change password, update user, delete user, session. Body limit 16 KB |
+| `/api/auth/*` | GET, POST | Better Auth: sign-up, sign-in, Google sign-in and callback (`/sign-in/social`, `/callback/google`), sign-out, verify email, request/perform password reset, change password, update user, delete user, session. Body limit 16 KB |
 | `/api/timer`  | GET       | Current timer snapshot used to re-sync after tab focus or reconnect. `401` when signed out, always `no-store`                                                |
 
 **Pages**: `/` `/login` `/register` `/forgot-password` `/reset-password` `/verify-email` `/privacy` `/terms` `/support` (public); `/dashboard` `/tasks` `/history` `/analytics` `/settings` (signed in).

@@ -48,6 +48,7 @@ Set these in Vercel (Project → Settings → Environment Variables, **Productio
 | `EMAIL_FROM`         | `FocusFlow <noreply@focus.example.com>` on a Resend-verified domain                          |
 | `RESEND_API_KEY`     | Resend key (a sending-only key is enough)                                                    |
 | `SUPPORT_EMAIL`      | Optional, shown on `/support`                                                                |
+| `GOOGLE_CLIENT_ID`, `GOOGLE_CLIENT_SECRET` | Optional, both or neither (§3b)                                                |
 
 Preview deployments get different URLs, so **sign-in will be rejected there** unless `BETTER_AUTH_URL` matches that preview's origin. Keep auth-dependent testing to local and production, or give previews their own environment values and database.
 
@@ -57,6 +58,19 @@ Preview deployments get different URLs, so **sign-in will be rejected there** un
 2. Create an API key and set `RESEND_API_KEY`; set `EMAIL_FROM` on the verified domain.
 3. The app sends three messages: email verification (24 h), password reset (1 h) and account-deletion confirmation. Failures are logged (`auth email failed`, no addresses) and do not reveal whether an account exists.
 4. Verify delivery yourself (§7); the automated tests use a file outbox, not Resend.
+
+## 3b. Google sign-in (optional)
+
+Skip this section to run with email and password only; the button is hidden unless both variables are set.
+
+1. In Google Cloud Console create (or pick) a project → **APIs & Services → OAuth consent screen** (External is fine). Add your app name, support email and your domain; scopes needed are the default `openid`, `email`, `profile`.
+2. **Credentials → Create credentials → OAuth client ID → Web application.**
+   - Authorized JavaScript origins: `https://<your-origin>` (and `http://localhost:3000` for local testing).
+   - Authorized redirect URIs: `https://<your-origin>/api/auth/callback/google` (and `http://localhost:3000/api/auth/callback/google` locally). The redirect URI must match `BETTER_AUTH_URL` exactly.
+3. Copy the client ID and secret into `GOOGLE_CLIENT_ID` and `GOOGLE_CLIENT_SECRET` (Vercel Production scope and your local `.env.local`). Set **both** or startup fails.
+4. While the consent screen is in "Testing" only listed test users can sign in; publish it for general use (Google may require verification for sensitive scopes; the basic scopes used here normally do not).
+
+Behaviour worth knowing: Google signs in to an existing account only when Google says the email is verified. If someone registered that address with a password but never verified it, that password login is removed when the real owner signs in with Google. Google-only accounts have no password: they delete their account through an emailed link. This flow was tested with dummy credentials only; run the checklist item in §7 with a real account.
 
 ## 4. Migrate the database
 
@@ -108,6 +122,7 @@ Do each once on production with a throwaway address:
 - [ ] Forgot password → the email arrives → reset works once, and the link then shows "not valid".
 - [ ] Create a task, run a 1-minute focus session (set Focus to 1 minute in Settings), see it in History and Analytics.
 - [ ] Reload mid-session: the timer continues. Open a second tab: the same timer.
+- [ ] (If Google is enabled) "Continue with Google" completes and lands on the dashboard; signing in again with the same Google account reuses the same account; Settings shows no password form and deletion works through the emailed link.
 - [ ] Settings → delete account → the confirmation email arrives → the account disappears.
 - [ ] `GET /api/timer` without a cookie returns 401.
 - [ ] Logs show JSON lines and no emails, tokens or passwords.
@@ -127,6 +142,8 @@ Do each once on production with a throwaway address:
 | ------------------------------------------------- | ---------------------------------------------------------------------------------------------- |
 | Every page returns 500 right after deploy         | Invalid environment configuration; read the first lines of the function log                    |
 | Sign-in or sign-up returns "Invalid origin" (403) | `BETTER_AUTH_URL` does not match the address in the browser (www vs apex, http vs https, preview URL) |
+| Google: `redirect_uri_mismatch`                    | The redirect URI in Google Cloud differs from `{BETTER_AUTH_URL}/api/auth/callback/google`        |
+| Google button missing                             | One or both `GOOGLE_*` variables are unset in that environment                                 |
 | Signed in but redirected back to login            | Cookie not stored: HTTP origin with Secure cookies, or a different host than `BETTER_AUTH_URL`  |
 | No emails                                         | Unverified Resend domain, wrong `EMAIL_FROM`, or invalid key (check logs for `auth email failed`) |
 | `permission denied for table …` in logs           | The restricted role lacks a grant (see §1), usually after a migration added a table             |

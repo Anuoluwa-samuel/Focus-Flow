@@ -1,5 +1,10 @@
+"use client";
+
+// Client component: it hands a colour function to CircleProgress, and functions cannot cross from a server component
+// (the landing page renders this preview on the server).
 import { formatClock, SESSION_LABEL } from "@/domain/timer/format";
 import type { SessionType } from "@/domain/timer/machine";
+import { CircleProgress } from "@/components/ui/circle-progress";
 
 type Props = {
   type: SessionType;
@@ -8,28 +13,23 @@ type Props = {
   status: "idle" | "running" | "paused";
 };
 
-const R = 108;
-const C = 2 * Math.PI * R;
-
 /** Presentation only: all values are derived by the caller from server timestamps. */
 export function TimerDisplay({ type, remainingSeconds, plannedSeconds, status }: Props) {
-  const progress = plannedSeconds > 0 ? 1 - remainingSeconds / plannedSeconds : 0;
   return (
     <div className="relative mx-auto aspect-square w-full max-w-[22rem]">
-      <svg viewBox="0 0 240 240" className="absolute inset-0 h-full w-full -rotate-90" aria-hidden="true">
-        <circle cx="120" cy="120" r={R} fill="none" stroke="var(--border)" strokeWidth="6" />
-        <circle
-          cx="120"
-          cy="120"
-          r={R}
-          fill="none"
-          stroke="var(--accent)"
-          strokeWidth="6"
-          strokeLinecap="round"
-          strokeDasharray={C}
-          strokeDashoffset={C * (1 - progress)}
-        />
-      </svg>
+      {/* Decorative ring: the time and state are already in the text below, and a changing progressbar value
+          must not be announced by screen readers, so it is hidden from assistive technology. */}
+      <CircleProgress
+        aria-hidden="true"
+        value={remainingSeconds}
+        maxValue={Math.max(plannedSeconds, 1)}
+        size={240}
+        strokeWidth={6}
+        counterClockwise
+        disableAnimation
+        getColor={() => "stroke-accent"}
+        className="absolute inset-0 [&_svg]:size-full"
+      />
       <div className="absolute inset-0 flex flex-col items-center justify-center gap-2">
         <p className="text-sm font-medium uppercase tracking-widest text-muted">{SESSION_LABEL[type]}</p>
         {/* Not a live region: a ticking countdown must not be announced every second. */}

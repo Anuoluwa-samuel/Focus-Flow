@@ -24,4 +24,20 @@ describe("TimerDisplay", () => {
     const { container } = render(<TimerDisplay type="focus" remainingSeconds={60} plannedSeconds={60} status="idle" />);
     expect(container.querySelector("[aria-live]")).toBeNull();
   });
+
+  it("draws the ring with CircleProgress but hides it from assistive technology", () => {
+    const { container } = render(
+      <TimerDisplay type="focus" remainingSeconds={375} plannedSeconds={1500} status="running" />,
+    );
+    const ring = container.querySelector('[role="progressbar"]')!;
+    expect(ring).toHaveAttribute("aria-hidden", "true"); // a changing value must never be announced each second
+    expect(ring).toHaveAttribute("aria-valuenow", "375");
+    expect(ring).toHaveAttribute("aria-valuemax", "1500");
+    const arc = container.querySelectorAll("circle")[1];
+    const circumference = 2 * Math.PI * ((240 - 6) / 2);
+    // 25% of the time is left, so a quarter of the ring is drawn (counter-clockwise offset is negative)
+    expect(Math.abs(Number(arc.getAttribute("stroke-dashoffset")))).toBeCloseTo(circumference * 0.75, 1);
+    expect(arc.getAttribute("class")).toContain("stroke-accent");
+    expect(screen.getByTestId("clock")).toHaveTextContent("06:15");
+  });
 });

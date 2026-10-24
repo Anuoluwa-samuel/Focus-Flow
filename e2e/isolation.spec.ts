@@ -63,8 +63,17 @@ test("two tabs of the same user completing at once record one session", async ({
   await ageLiveSession(email, 25 * 60 + 5);
   // both tabs wake at the same moment and both try to complete
   await Promise.all([p1.reload(), p2.reload()]);
-  await expect(p1.getByText(/Focus complete/)).toBeVisible({ timeout: 15_000 });
-  await expect(p2.getByText(/Focus complete/)).toBeVisible({ timeout: 15_000 });
+  // Whichever tab loads first completes the session; the other may load after it is already done. Either way
+  // both tabs end up idle and the database holds exactly one completed session.
+  await expect
+    .poll(async () => (await p1.getByText(/Focus complete/).count()) + (await p2.getByText(/Focus complete/).count()), {
+      timeout: 15_000,
+    })
+    .toBeGreaterThan(0);
+  for (const p of [p1, p2]) {
+    await expect(p.getByRole("button", { name: /^Start/ })).toBeVisible();
+    await expect(p.getByRole("button", { name: "Pause" })).toHaveCount(0);
+  }
   const rows = await db().query("select status from focus_session where user_id = $1", [await userId(email)]);
   expect(rows.rows).toEqual([{ status: "completed" }]);
   await ctx.close();

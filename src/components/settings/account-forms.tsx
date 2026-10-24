@@ -125,11 +125,11 @@ export function PasswordForm() {
 }
 
 const deleteSchema = z.object({
-  password: z.string().min(1, "Enter your password").max(128),
+  password: z.string().max(128),
   confirm: z.literal("DELETE", { error: "Type DELETE to confirm" }),
 });
 
-export function DeleteAccountForm() {
+export function DeleteAccountForm({ hasPassword }: { hasPassword: boolean }) {
   const [msg, setMsg] = useState<{ kind: "ok" | "error"; text: string } | null>(null);
   const form = useForm({
     resolver: zodResolver(deleteSchema),
@@ -138,19 +138,34 @@ export function DeleteAccountForm() {
   return (
     <Card title="Delete account">
       <p className="text-sm text-muted">
-        This permanently removes your account, tasks, sessions and history. For safety we confirm your password and then
-        email you a link that completes the deletion. It cannot be undone.
+        This permanently removes your account, tasks, sessions and history.{" "}
+        {hasPassword
+          ? "For safety we confirm your password and then email you a link that completes the deletion."
+          : "Because you sign in with Google, we email you a link that completes the deletion."}{" "}
+        It cannot be undone.
       </p>
       <form
         noValidate
         className="grid gap-3"
         onSubmit={form.handleSubmit(async (v) => {
           setMsg(null);
-          const { error } = await authClient.deleteUser({ password: v.password, callbackURL: "/" });
+          if (hasPassword && !v.password) {
+            form.setError("password", { message: "Enter your password" });
+            return;
+          }
+          const { error } = await authClient.deleteUser({
+            ...(hasPassword ? { password: v.password } : {}),
+            callbackURL: "/",
+          });
           if (error)
             return setMsg({
               kind: "error",
-              text: error.status === 429 ? "Too many attempts. Try again later." : "Your password is incorrect.",
+              text:
+                error.status === 429
+                  ? "Too many attempts. Try again later."
+                  : hasPassword
+                    ? "Your password is incorrect."
+                    : "We couldn't start the deletion. Please try again.",
             });
           form.reset();
           setMsg({
@@ -159,14 +174,16 @@ export function DeleteAccountForm() {
           });
         })}
       >
-        <Field
-          id="delete-password"
-          label="Password"
-          type="password"
-          autoComplete="current-password"
-          error={form.formState.errors.password}
-          {...form.register("password")}
-        />
+        {hasPassword && (
+          <Field
+            id="delete-password"
+            label="Password"
+            type="password"
+            autoComplete="current-password"
+            error={form.formState.errors.password}
+            {...form.register("password")}
+          />
+        )}
         <Field
           id="delete-confirm"
           label='Type "DELETE" to confirm'

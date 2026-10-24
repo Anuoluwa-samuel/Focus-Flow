@@ -15,6 +15,9 @@ const baseEnv = {
   DATABASE_URL: E2E_DATABASE_URL,
   EMAIL_OUTBOX_FILE: OUTBOX,
   RESEND_API_KEY: "",
+  // Dummy values: the tests check our side of the OAuth redirect and never contact Google.
+  GOOGLE_CLIENT_ID: "e2e-dummy-client-id.apps.googleusercontent.com",
+  GOOGLE_CLIENT_SECRET: "e2e-dummy-client-secret",
 } as Record<string, string>;
 
 export default defineConfig({

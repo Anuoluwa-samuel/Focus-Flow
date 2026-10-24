@@ -13,6 +13,7 @@
 | Browser | XSS | React escaping, no raw HTML, per-request nonce CSP with `strict-dynamic`, `frame-ancestors 'none'`, HSTS, nosniff | Headers verified on a production build |
 | Redirects | Open redirect | `safeRedirectPath` allows only same-origin relative paths | Verified by unit and end-to-end tests |
 | Logs | Secret leakage | Redacting JSON logger | Implemented. Dev email transport prints links to the console by design (development only) |
+| Google sign-in | Account takeover via pre-registered email; open redirect; CSRF on the OAuth flow | Link only on Google-verified email; unverified local password login discarded before linking; state + PKCE; same-site-only callback; generic errors | Redirect and failure paths verified with dummy credentials; real flow untested |
 
 **Known limitations**
 - Better Auth's email-verification link is a signed JWT valid for 24h, not a single-use hashed row. Password-reset tokens are stored in the `verification` table and deleted on use, but stored as received rather than hashed. Both are the library's design; I did not replace it with custom crypto.

@@ -1,6 +1,16 @@
 import { expect, test } from "@playwright/test";
 import { ageLiveSession, db, login, PASSWORD, registerAndVerify, uniqueEmail, userId } from "./helpers/utils";
 
+test("the landing page renders its timer preview and calls to action", async ({ page }) => {
+  const errors: string[] = [];
+  page.on("pageerror", (e) => errors.push(e.message));
+  await page.goto("/");
+  await expect(page.getByRole("heading", { name: "Focus on one thing at a time." })).toBeVisible();
+  await expect(page.getByTestId("clock")).toHaveText("18:42"); // the preview ring and clock really rendered
+  await expect(page.getByRole("link", { name: "Start focusing" })).toBeVisible();
+  expect(errors).toEqual([]);
+});
+
 test.describe.serial("a user's first day", () => {
   const email = uniqueEmail("journey");
 
